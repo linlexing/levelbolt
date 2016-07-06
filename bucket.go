@@ -1,68 +1,30 @@
 package levelbolt
 
-import (
-	"fmt"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
-)
-
 type Bucket struct {
 	Name []byte
-	db   *leveldb.DB
-	tx   *leveldb.Transaction
+	tx   *Tx
 }
 
-func newBucket(name []byte, db *leveldb.DB, tx *leveldb.Transaction) *Bucket {
+func newBucket(name []byte, tx *Tx) *Bucket {
 	return &Bucket{
 		Name: name,
-		db:   db,
 		tx:   tx,
 	}
 }
 func (b *Bucket) Put(key, value []byte) error {
-	if b.tx != nil {
-		return b.tx.Put(append(b.Name, key...), value, nil)
-	} else {
-		return fmt.Errorf("view can't call put")
-	}
+	return b.tx.Put(append(b.Name, key...), value)
 }
 func (b *Bucket) Delete(key []byte) error {
-	if b.tx != nil {
-		return b.tx.Delete(append(b.Name, key...), nil)
-	} else {
-		return fmt.Errorf("view can't call delete")
-	}
+	return b.tx.Delete(append(b.Name, key...))
 }
 func (b *Bucket) Get(key []byte) []byte {
-	var rev []byte
-	var err error
-	if b.tx != nil {
-		rev, err = b.tx.Get(append(b.Name, key...), nil)
-	} else {
-		rev, err = b.db.Get(append(b.Name, key...), nil)
-	}
-
-	if err == leveldb.ErrNotFound {
-		return nil
-	}
-	if err != nil {
-		panic(err)
-	}
-	return rev
+	return b.tx.Get(append(b.Name, key...))
 }
 func (b *Bucket) ForEach(cb func(k, v []byte) error) error {
-	iter := b.db.NewIterator(util.BytesPrefix(b.Name), nil)
-	defer iter.Release()
-	for iter.Next() {
-		if err := cb(iter.Key()[len(b.Name):], iter.Value()); err != nil {
-			return err
-		}
-	}
-	return iter.Error()
+	return b.tx.ForEach(b.Name, func(k, v []byte) error {
+		return cb(k[len(b.Name):], v)
+	})
 }
 func (b *Bucket) IsEmpty() bool {
-	iter := b.db.NewIterator(util.BytesPrefix(b.Name), nil)
-	defer iter.Release()
-	return !iter.First()
+	return b.tx.IsEmpty(b.Name)
 }

@@ -23,6 +23,16 @@ func Open(filename string, op *opt.Options) (*DB, error) {
 func (d *DB) Close() error {
 	return d.db.Close()
 }
+func (d *DB) Batch(cb func(*Tx) error, wo *opt.WriteOptions) (err error) {
+	tx := newBatchTx(d.db)
+	defer func() {
+		if err == nil {
+			err = d.db.Write(tx.batch, wo)
+		}
+	}()
+	err = cb(tx)
+	return
+}
 func (d *DB) Update(cb func(*Tx) error) (err error) {
 	tx := newTx(d.db, false)
 	defer func() {
@@ -32,7 +42,8 @@ func (d *DB) Update(cb func(*Tx) error) (err error) {
 			err = tx.tx.Commit()
 		}
 	}()
-	return cb(tx)
+	err = cb(tx)
+	return
 }
 func (d *DB) View(cb func(*Tx) error) error {
 	tx := newTx(d.db, true)
