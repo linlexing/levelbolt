@@ -23,7 +23,9 @@ func Open(filename string, op *opt.Options) (*DB, error) {
 func (d *DB) Close() error {
 	return d.db.Close()
 }
-func (d *DB) Batch(cb func(*Tx) error, wo *opt.WriteOptions) (err error) {
+
+//好像性能有问题，比不上Update
+func (d *DB) Batch1(cb func(*Tx) error, wo *opt.WriteOptions) (err error) {
 	tx := newBatchTx(d.db)
 	defer func() {
 		if err == nil {
@@ -33,13 +35,16 @@ func (d *DB) Batch(cb func(*Tx) error, wo *opt.WriteOptions) (err error) {
 	err = cb(tx)
 	return
 }
+func (d *DB) Begin() *Tx {
+	return newTx(d.db, false)
+}
 func (d *DB) Update(cb func(*Tx) error) (err error) {
 	tx := newTx(d.db, false)
 	defer func() {
 		if err != nil {
-			tx.tx.Discard()
+			tx.Discard()
 		} else {
-			err = tx.tx.Commit()
+			err = tx.Commit()
 		}
 	}()
 	err = cb(tx)

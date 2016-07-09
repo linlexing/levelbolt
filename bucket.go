@@ -20,6 +20,9 @@ func (b *Bucket) Delete(key []byte) error {
 func (b *Bucket) Get(key []byte) []byte {
 	return b.tx.Get(append(b.Name, key...))
 }
+func (b *Bucket) Has(key []byte) bool {
+	return b.tx.Has(append(b.Name, key...))
+}
 func (b *Bucket) ForEach(cb func(k, v []byte) error) error {
 	return b.tx.ForEach(b.Name, func(k, v []byte) error {
 		return cb(k[len(b.Name):], v)

@@ -35,6 +35,22 @@ func (t *Tx) CreateBucketIfNotExists(name []byte) (*Bucket, error) {
 func (t *Tx) CreateBucket(name []byte) *Bucket {
 	return t.Bucket(name)
 }
+func (t *Tx) Has(key []byte) bool {
+	if t.tx != nil {
+		rev, err := t.tx.Has(key, nil)
+		if err != nil {
+			panic(err)
+		}
+		return rev
+	} else {
+		rev, err := t.db.Has(key, nil)
+		if err != nil {
+			panic(err)
+		}
+		return rev
+	}
+
+}
 func (t *Tx) Bucket(name []byte) *Bucket {
 	if b, ok := t.buckets[string(name)]; ok {
 		return b
@@ -81,6 +97,15 @@ func (t *Tx) Delete(key []byte) error {
 		return fmt.Errorf("view can't call delete")
 	}
 }
+func (t *Tx) Discard() {
+
+	t.tx.Discard()
+}
+func (t *Tx) Commit() error {
+	return t.tx.Commit()
+}
+
+//the key and value must be copy,may change the next
 func (t *Tx) ForEach(prex []byte, cb func(k, v []byte) error) error {
 	iter := t.db.NewIterator(util.BytesPrefix(prex), nil)
 	defer iter.Release()
