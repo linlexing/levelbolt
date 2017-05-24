@@ -40,14 +40,20 @@ func (d *DB) Begin() *Tx {
 }
 func (d *DB) Update(cb func(*Tx) error) (err error) {
 	tx := newTx(d.db, false)
+	finish := false
 	defer func() {
-		if err != nil {
+		//如果没有设置，说明是中途跳出，发生了异常
+		//这里不捕获异常是要保留现场
+		if !finish {
 			tx.Discard()
-		} else {
-			err = tx.Commit()
 		}
 	}()
-	err = cb(tx)
+	if err = cb(tx); err != nil {
+		tx.Discard()
+	} else {
+		err = tx.Commit()
+	}
+	finish = true
 	return
 }
 func (d *DB) View(cb func(*Tx) error) error {
