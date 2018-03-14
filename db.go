@@ -48,7 +48,7 @@ func (d *DB) Update(cb func(*Tx) error) (err error) {
 
 //UpdateNoTrans 不用事务更新
 func (d *DB) UpdateNoTrans(cb func(*Tx) error) (err error) {
-	tx := newTx(d.db, false)
+	tx := newTx(d.db, true)
 	finish := false
 	defer func() {
 		//如果没有设置，说明是中途跳出，发生了异常
