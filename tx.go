@@ -1,8 +1,6 @@
 package levelbolt
 
 import (
-	"fmt"
-
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
@@ -10,24 +8,19 @@ import (
 type Tx struct {
 	db      *leveldb.DB
 	tx      *leveldb.Transaction
-	batch   *leveldb.Batch
 	buckets map[string]*Bucket
 }
 
-func newBatchTx(db *leveldb.DB) *Tx {
-
-	return &Tx{db, nil, new(leveldb.Batch), map[string]*Bucket{}}
-}
-func newTx(db *leveldb.DB, readonly bool) *Tx {
-	if !readonly {
+func newTx(db *leveldb.DB, noTans bool) *Tx {
+	if !noTans {
 		tx, err := db.OpenTransaction()
 		if err != nil {
 			panic(err)
 		}
-		return &Tx{db, tx, nil, map[string]*Bucket{}}
-	} else {
-		return &Tx{db, nil, nil, map[string]*Bucket{}}
+		return &Tx{db, tx, map[string]*Bucket{}}
 	}
+	return &Tx{db, nil, map[string]*Bucket{}}
+
 }
 func (t *Tx) CreateBucketIfNotExists(name []byte) (*Bucket, error) {
 	return t.Bucket(name), nil
@@ -80,32 +73,30 @@ func (t *Tx) Get(key []byte) []byte {
 func (t *Tx) Put(key, value []byte) error {
 	if t.tx != nil {
 		return t.tx.Put(key, value, nil)
-	} else if t.batch != nil {
-		t.batch.Put(key, value)
-		return nil
 	} else {
-		return fmt.Errorf("view can't call put")
+		return t.db.Put(key, value, nil)
 	}
 }
 func (t *Tx) Delete(key []byte) error {
 	if t.tx != nil {
 		return t.tx.Delete(key, nil)
-	} else if t.batch != nil {
-		t.batch.Delete(key)
-		return nil
 	} else {
-		return fmt.Errorf("view can't call delete")
+		return t.db.Delete(key, nil)
 	}
 }
 func (t *Tx) Discard() {
-
-	t.tx.Discard()
+	if t.tx != nil {
+		t.tx.Discard()
+	}
 }
 func (t *Tx) Commit() error {
-	return t.tx.Commit()
+	if t.tx != nil {
+		return t.tx.Commit()
+	}
+	return nil
 }
 
-//the key and value must be copy,may change the next
+//ForEach the key and value must be copy,may change the next
 func (t *Tx) ForEach(prex []byte, cb func(k, v []byte) error) error {
 	iter := t.db.NewIterator(util.BytesPrefix(prex), nil)
 	defer iter.Release()

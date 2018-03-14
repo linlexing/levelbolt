@@ -24,21 +24,30 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
-//好像性能有问题，比不上Update
-func (d *DB) Batch1(cb func(*Tx) error, wo *opt.WriteOptions) (err error) {
-	tx := newBatchTx(d.db)
-	defer func() {
-		if err == nil {
-			err = d.db.Write(tx.batch, wo)
-		}
-	}()
-	err = cb(tx)
-	return
-}
 func (d *DB) Begin() *Tx {
 	return newTx(d.db, false)
 }
 func (d *DB) Update(cb func(*Tx) error) (err error) {
+	tx := newTx(d.db, false)
+	finish := false
+	defer func() {
+		//如果没有设置，说明是中途跳出，发生了异常
+		//这里不捕获异常是要保留现场
+		if !finish {
+			tx.Discard()
+		}
+	}()
+	if err = cb(tx); err != nil {
+		tx.Discard()
+	} else {
+		err = tx.Commit()
+	}
+	finish = true
+	return
+}
+
+//UpdateNoTrans 不用事务更新
+func (d *DB) UpdateNoTrans(cb func(*Tx) error) (err error) {
 	tx := newTx(d.db, false)
 	finish := false
 	defer func() {
